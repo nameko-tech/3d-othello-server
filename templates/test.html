@@ -7,24 +7,14 @@
       integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="
       crossorigin="anonymous"
     ></script>
-    <script
-      src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"
-      integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I="
-      crossorigin="anonymous"
-    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@2/dist/socket.io.js"></script>
     <script type="text/javascript" charset="utf-8">
       $(document).ready(function () {
-        // Use a "/test" namespace.
-        // An application can open a connection on multiple namespaces, and
-        // Socket.IO will multiplex all those connections on a single
-        // physical channel. If you don't care about multiple channels, you
-        // can set the namespace to an empty string.
-        namespace = "/test";
-
         // Connect to the Socket.IO server.
         // The connection URL has the following format, relative to the current page:
         //     http[s]://<domain>:<port>[/<namespace>]
-        var socket = io(namespace);
+        // var socket = io(namespace);
+        var socket = io();
 
         // Event handler for new connections.
         // The callback function is invoked when a connection with the
@@ -52,10 +42,10 @@
         // round trip time is measured.
         var ping_pong_times = [];
         var start_time;
-        window.setInterval(function () {
-          start_time = new Date().getTime();
-          socket.emit("my_ping");
-        }, 1000);
+        // window.setInterval(function () {
+        //   start_time = new Date().getTime();
+        //   socket.emit("my_ping");
+        // }, 1000);
 
         // Handler for the "pong" message. When the pong is received, the
         // time from the ping is stored, and the average of the last 30
