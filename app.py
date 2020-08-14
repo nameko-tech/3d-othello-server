@@ -5,7 +5,9 @@ from flask import Flask, render_template, session, request, \
 from flask_socketio import SocketIO, emit, join_room, leave_room, \
     close_room, rooms, disconnect
 import os
+import redis
 
+cache = redis.Redis(host='redis', port=6379)
 # Set this variable to "threading", "eventlet" or "gevent" to test the
 # different async modes, or leave it set to None for the application to choose
 # the best option based on installed packages.
@@ -37,6 +39,19 @@ def favicon():
 @app.route('/')
 def index():
     return render_template('test.html', async_mode=socketio.async_mode)
+
+
+@app.route('/set/<int:price>')
+def sets(price):
+    cache.set("price", price)
+    # print('hello~')
+    return f"Price set to {price}"
+
+
+@app.route('/get')
+def get_price():
+    price = int(cache.get("price"))
+    return f"The price is {price}."
 
 
 @socketio.on('my_event')
