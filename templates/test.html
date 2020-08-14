@@ -28,7 +28,7 @@
         // to the client. The data is then displayed in the "Received"
         // section of the page.
         socket.on("my_response", function (msg, cb) {
-          $("#log").append(
+          $("#log").prepend(
             "<br>" +
               $("<div/>")
                 .text("Received #" + msg.count + ": " + msg.data)
