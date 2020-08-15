@@ -1,10 +1,12 @@
 version: "3"
 services:
   app:
+    container_name: flask
     build: .
     ports:
       - "5000:5000"
     volumes:
       - .:/app
   redis:
+    container_name: redis
     image: "redis:alpine"
