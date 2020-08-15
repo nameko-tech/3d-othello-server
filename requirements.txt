@@ -3,3 +3,4 @@ Flask
 redis
 gunicorn
 eventlet
+flask-cors

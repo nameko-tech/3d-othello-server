@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 from threading import Lock
 from flask import Flask, render_template, session, request, \
-    copy_current_request_context, send_from_directory, request
+    copy_current_request_context, send_from_directory, request, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room, \
     close_room, rooms, disconnect
 import os
 import redis
-
+from flask_cors import CORS  # 追加
 
 cache = redis.Redis(host='redis', port=6379)
 # Set this variable to "threading", "eventlet" or "gevent" to test the
@@ -15,21 +15,22 @@ cache = redis.Redis(host='redis', port=6379)
 async_mode = "eventlet"
 
 app = Flask(__name__)
+CORS(app)
 # app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*")
 thread = None
 thread_lock = Lock()
 
 
-@app.after_request
-def after_request(response):
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    response.headers.add("Access-Control-Allow-Headers", "*")
-#    response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-    response.headers.add('Access-Control-Allow-Methods',
-                         'GET,PUT,POST,DELETE,OPTIONS')
-#    response.headers.add("allow", "GET,OPTIONS,HEAD")
-    return response
+# @app.after_request
+# def after_request(response):
+#     response.headers.add("Access-Control-Allow-Origin", "*")
+#     response.headers.add("Access-Control-Allow-Headers", "*")
+# #    response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+#     response.headers.add('Access-Control-Allow-Methods',
+#                          'GET,PUT,POST,DELETE,OPTIONS')
+# #    response.headers.add("allow", "GET,OPTIONS,HEAD")
+#     return response
 
 
 def background_thread():
@@ -52,13 +53,37 @@ def favicon():
 def index():
     return render_template('test.html', async_mode=socketio.async_mode)
 
+# methods=['POST', 'OPTIONS']
 
-@app.route('/join', methods=['POST'])
+
+@app.route('/join', methods=['POST', 'OPTIONS'])
 def sets():
+    if request.method != 'POST':
+        return jsonify({'message': 'option'}), 200
     # cache.set("room_name", )
-    body = dict(request.get_json())
-    print(body)
-    return f"content is ... {body}"
+    print(request.get_data())
+    rawData = request.get_data()
+    if not rawData:
+        print('no raw data')
+        return jsonify({'message': 'no data was given'}), 400
+    rawBody = dict(request.get_json())
+    if not rawBody["roomName"]:
+        print('no room name')
+        return jsonify({'message': 'no room name was given'}), 400
+    print('roomname was: ' + rawBody["roomName"])
+    # 送られた roomname↓
+    room_name = rawBody["roomName"]
+
+    # DBに問い合わせてそのroomがあるか確かめる
+    # 無かったら登録して、 {isFirst: true} で返す
+    # 二人目だったら 登録しつつ {isFirst: false} で返す
+    # 既に二人いたら、だめだよって返す
+    if True:
+        # if able to play
+        return jsonify({'message': 'success', 'isFirst': 'true'}), 200
+    else:
+        # too many people
+        return jsonify({'message': 'too many people'}), 200
 
 
 @app.route('/get')
@@ -84,8 +109,11 @@ def test_broadcast_message(message):
 
 @socketio.on('join')
 def join(message):
-    join_room(message['room'])
-    session['receive_count'] = session.get('receive_count', 0) + 1
+    print('someone want to join')
+    print(message)
+    # join_room(message['room'])
+    # session['receive_count'] = session.get('receive_count', 0) + 1
+    return
     emit('my_response',
          {'data': 'In rooms: ' + ', '.join(rooms()),
           'count': session['receive_count']})
@@ -139,10 +167,10 @@ def ping_pong():
 
 @socketio.on('connect')
 def test_connect():
-    global thread
-    with thread_lock:
-        if thread is None:
-            thread = socketio.start_background_task(background_thread)
+    print('someone has connected')
+    # with thread_lock:
+    #     if thread is None:
+    #         thread = socketio.start_background_task(background_thread)
     emit('my_response', {'data': 'Connected', 'count': 0})
 
 
