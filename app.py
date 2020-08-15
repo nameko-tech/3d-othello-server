@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from threading import Lock
 from flask import Flask, render_template, session, request, \
-    copy_current_request_context, send_from_directory
+    copy_current_request_context, send_from_directory, request
 from flask_socketio import SocketIO, emit, join_room, leave_room, \
     close_room, rooms, disconnect
 import os
@@ -41,17 +41,18 @@ def index():
     return render_template('test.html', async_mode=socketio.async_mode)
 
 
-@app.route('/join')
-def sets(room_name):
-    cache.set("room_name", room_name)
-    print('hello~' + room_name)
-    return f"room_name set to {room_name}"
+@app.route('/join', methods=['POST'])
+def sets():
+    # cache.set("room_name", )
+    body = dict(request.get_json())
+    print(body)
+    return f"content is ... {body}"
 
 
 @app.route('/get')
 def get_room():
     room_name = str(cache.get("price"))
-    return f"The price is {price}."
+    return f"The price is {room_name}."
 
 
 @socketio.on('my_event')
