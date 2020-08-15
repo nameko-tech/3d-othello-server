@@ -19,4 +19,4 @@ COPY . /app
 # ADD . /app
 # COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
-CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1","--reload", "--bind","0.0.0.0:3001", "app:app"]
+CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1","--reload", "--bind","0.0.0.0:3001","-t","1", "app:app"]
