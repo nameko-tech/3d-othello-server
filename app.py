@@ -41,16 +41,16 @@ def index():
     return render_template('test.html', async_mode=socketio.async_mode)
 
 
-@app.route('/set/<int:price>')
-def sets(price):
-    cache.set("price", price)
-    # print('hello~')
-    return f"Price set to {price}"
+@app.route('/join')
+def sets(room_name):
+    cache.set("room_name", room_name)
+    print('hello~' + room_name)
+    return f"room_name set to {room_name}"
 
 
 @app.route('/get')
-def get_price():
-    price = int(cache.get("price"))
+def get_room():
+    room_name = str(cache.get("price"))
     return f"The price is {price}."
 
 

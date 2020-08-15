@@ -7,6 +7,8 @@ services:
       - "5000:5000"
     volumes:
       - .:/app
+    restart: always
   redis:
     container_name: redis
     image: "redis:alpine"
+    restart: always
