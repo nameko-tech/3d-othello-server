@@ -7,6 +7,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, \
 import os
 import redis
 
+
 cache = redis.Redis(host='redis', port=6379)
 # Set this variable to "threading", "eventlet" or "gevent" to test the
 # different async modes, or leave it set to None for the application to choose
@@ -18,6 +19,17 @@ app = Flask(__name__)
 socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*")
 thread = None
 thread_lock = Lock()
+
+
+@app.after_request
+def after_request(response):
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Headers", "*")
+#    response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+    response.headers.add('Access-Control-Allow-Methods',
+                         'GET,PUT,POST,DELETE,OPTIONS')
+#    response.headers.add("allow", "GET,OPTIONS,HEAD")
+    return response
 
 
 def background_thread():
