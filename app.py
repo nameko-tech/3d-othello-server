@@ -15,7 +15,7 @@ cache = redis.Redis(host='redis', port=6379)
 async_mode = "eventlet"
 
 app = Flask(__name__)
-CORS(app)
+# CORS(app)
 # app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*")
 thread = None
@@ -53,43 +53,51 @@ def favicon():
 def index():
     return render_template('test.html', async_mode=socketio.async_mode)
 
-# methods=['POST', 'OPTIONS']
 
-
-@app.route('/join', methods=['POST', 'OPTIONS'])
-def sets():
-    if request.method != 'POST':
-        return jsonify({'message': 'option'}), 200
+@socketio.on('join')
+def join(message):
     # cache.set("room_name", )
-    print(request.get_data())
-    rawData = request.get_data()
-    if not rawData:
+    print()
+    if not message.get('roomName'):
         print('no raw data')
-        return jsonify({'message': 'no data was given'}), 400
-    rawBody = dict(request.get_json())
-    if not rawBody["roomName"]:
-        print('no room name')
-        return jsonify({'message': 'no room name was given'}), 400
-    print('roomname was: ' + rawBody["roomName"])
+        emit('my_response', {'status': 'error',
+                             'message': 'no room name was given'})
+        return
     # 送られた roomname↓
-    room_name = rawBody["roomName"]
+    room_name = message["roomName"]
+    print('roomname was: ' + room_name + '\n|id: ' + request.sid)
 
     # DBに問い合わせてそのroomがあるか確かめる
     # 無かったら登録して、 {isFirst: true} で返す
     # 二人目だったら 登録しつつ {isFirst: false} で返す
     # 既に二人いたら、だめだよって返す
-    if True:
-        # if able to play
-        return jsonify({'message': 'success', 'isFirst': 'true'}), 200
-    else:
-        # too many people
-        return jsonify({'message': 'too many people'}), 200
+
+    # join_room(message['room'])
+    # session['receive_count'] = session.get('receive_count', 0) + 1
+    # emit('my_response',
+    #      {'data': 'In rooms: ' + ', '.join(rooms()),
+    #       'count': session['receive_count']})
+    emit('my_response', {"hello": "hello...?"})
+    return
 
 
-@app.route('/get')
-def get_room():
-    room_name = str(cache.get("price"))
-    return f"The price is {room_name}."
+@socketio.on('connect')
+def test_connect():
+    print(f'{request.sid} has connected')
+    emit('my_response', {'data': 'Connected', 'count': 0})
+
+
+@socketio.on('disconnect')
+def test_disconnect():
+    # DBからデータを抹消する
+    print('Client disconnected', request.sid)
+
+
+"""
+"
+" ここから下は未使用
+"
+"""
 
 
 @socketio.on('my_event')
@@ -105,18 +113,6 @@ def test_broadcast_message(message):
     emit('my_response',
          {'data': message['data'], 'count': session['receive_count']},
          broadcast=True)
-
-
-@socketio.on('join')
-def join(message):
-    print('someone want to join')
-    print(message)
-    # join_room(message['room'])
-    # session['receive_count'] = session.get('receive_count', 0) + 1
-    return
-    emit('my_response',
-         {'data': 'In rooms: ' + ', '.join(rooms()),
-          'count': session['receive_count']})
 
 
 @socketio.on('leave')
@@ -163,21 +159,3 @@ def disconnect_request():
 @socketio.on('my_ping')
 def ping_pong():
     emit('my_pong')
-
-
-@socketio.on('connect')
-def test_connect():
-    print('someone has connected')
-    # with thread_lock:
-    #     if thread is None:
-    #         thread = socketio.start_background_task(background_thread)
-    emit('my_response', {'data': 'Connected', 'count': 0})
-
-
-@socketio.on('disconnect')
-def test_disconnect():
-    print('Client disconnected', request.sid)
-
-
-# if __name__ == '__main__':
-    # socketio.run(app, debug=True)
