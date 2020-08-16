@@ -60,20 +60,17 @@ def index():
 @app.route('/data')
 def data():
     data = cache.keys('*')
-    # print(type(data))
     return jsonify({'data': str(list(map(bytes.decode, list(data))))}), 200
 
 
 @app.route('/get/<room_name>')
 def get(room_name):
     data = cache.hgetall(f'room:{room_name}')
-    print(list(data))
     return jsonify({'data': str(data)}), 200
 
 
 @ socketio.on('room')
 def room(message):
-    print()
     if not message.get('roomName'):
         print('no raw data')
         emit('room', {'status': 'error',
@@ -90,7 +87,6 @@ def room(message):
         cache.hset(room_name_key, color, str(request.sid))
         cache.expire(room_name_key, 1800)
         join_room(room_name_key)
-        print(f'room creator joined to {room_name_key}')
         emit('room', {"status": "waiting",
                       "room": room_name_key}, room=room_name_key)
         return
@@ -104,17 +100,16 @@ def room(message):
     print('２人目だよ')
     items = {key.decode(): val.decode()
              for key, val in cache.hgetall(room_name_key).items()}
-    print(items)
     if not (items.get('white') or items.get('black')):
         print('変ですねえ')
         emit('room', {"status": "fail", "room": room_name, "message": "変ですねえ"})
         return
     yourColor = ''
     if items.get('black'):
-        print('おまえは白')
+        # print('おまえは白')
         yourColor = 'white'
     else:
-        print('お前は黒')
+        # print('お前は黒')
         yourColor = 'black'
     join_room(room_name_key)
     cache.hset(room_name_key, yourColor, str(request.sid))
@@ -153,7 +148,6 @@ def room(message):
 def game(message):
     if not (message.get('piece') and message.get('room')):
         return
-    print(message["piece"], message["room"], message["color"])
     piece = message["piece"]
     room_name = message["room"]
     room_name_key = f'room:{message["room"]}'
@@ -166,7 +160,7 @@ def game(message):
     new_next = "white" if current_color == "black" else "black"
     # update_board()する
     new_board = update_board(board, message.get('piece'), message["color"])
-    print(new_board)
+    # print(new_board)
     cache.hset(room_name_key, "next", new_next)
     cache.hset(room_name_key, "board", json.dumps(new_board))
     generated_board = generate_board_to_send(new_board)
@@ -187,18 +181,18 @@ def test_connect():
     emit('my_response', {'data': 'Connected', 'count': 0})
 
 
-@ socketio.on('disconnect')
-def test_disconnect():
+# @ socketio.on('disconnect')
+# def test_disconnect():
     # DBからdisconnectした人のデータを抹消する
     # 一人目でwaitingだった場合は、部屋を抹消
     # ゲーム中だった場合は、もうひとりに知らせてから、部屋を抹消
-    print('Client disconnected', request.sid)
+    # print('Client disconnected', request.sid)
 
 
 def update_board(board, piece, color):
     col = 1 if color == "white" else 0
     enemyCol = 0 if color == "white" else 1
-    print(f'col:{col} enemy:{enemyCol}')
+    # print(f'col:{col} enemy:{enemyCol}')
 
     for i in range(-1, 2):
         for j in range(-1, 2):
@@ -216,10 +210,10 @@ def update_board(board, piece, color):
                 if board["board"][piece[0]+i][piece[1]+j][piece[2]+k]["piece"] == enemyCol:
                     board["board"][piece[0]][piece[1]
                                              ][piece[2]] = {"piece": col}
-                    print('変わりそう')
+                    # print('変わりそう')
                     step = 0  # WIP
                     if [i, j, k].count(0) == 0:
-                        print('３じげん')
+                        # print('３じげん')
                         if i == 1 and j == 1 and k == 1:
                             step = min(6-piece[i], 6-piece[j], 6-piece[k])
                         elif i == 1 and j == 1 and k == -1:
@@ -238,8 +232,7 @@ def update_board(board, piece, color):
                             step = min(piece[i], piece[j], piece[k])
                             # step = min(1, 2, 3)
                     elif [i, j, k].count(0) == 1:
-                        print('２じげん')
-
+                        # print('２じげん')
                         if i == 1 and j == 1:
                             step = min(6-piece[i], 6-piece[j])
                         elif i == -1 and j == 1:
@@ -268,8 +261,7 @@ def update_board(board, piece, color):
                             step = min(piece[j], piece[k])
                         step = min(1, 2)
                     else:
-                        print('１じげん')
-
+                        # print('１じげん')
                         if i == 1:
                             step = 6 - piece[i]
                         elif i == -1:
@@ -282,15 +274,15 @@ def update_board(board, piece, color):
                             step = 6 - piece[k]
                         elif k == -1:
                             step = piece[k]
-                    print(step)
+                    # print(step)
                     for l in range(1, step):
                         if board["board"][piece[0]+l*i][piece[1]+l*j][piece[2]+l*k]["piece"] == -1:
-                            print(f'ないよ')
+                            # print(f'ないよ')
                             break
                         elif board["board"][piece[0]+l*i][piece[1]+l*j][piece[2]+l*k]["piece"] == col:
-                            print('あるよ')
+                            # print('あるよ')
                             for m in range(l):
-                                print('かえたよ')
+                                # print('かえたよ')
                                 board["board"][piece[0]+m*i][piece[1] +
                                                              m*j][piece[2]+m*k] = {"piece": col}
                             break
@@ -305,7 +297,7 @@ def can_place(board):
         for x in range(6):
             for y in range(6):
                 for z in range(6):
-                    print(f'{[x,y,z]}')
+                    # print(f'{[x,y,z]}')
                     if board["board"][x][y][z] != -1:
                         continue
                     for i in range(-1, 2):
@@ -322,10 +314,10 @@ def can_place(board):
                                 except:
                                     continue
                                 if board["board"][x+i][y+j][z+k]["piece"] == enemyCol:
-                                    print('置けるかも')
+                                    # print('置けるかも')
                                     step = 0  # WIP
                                     if [i, j, k].count(0) == 0:
-                                        print('３じげん')
+                                        # print('３じげん')
                                         if i == 1 and j == 1 and k == 1:
                                             step = min(6-x, 6-y, 6-z)
                                         elif i == 1 and j == 1 and k == -1:
@@ -400,83 +392,15 @@ def can_place(board):
                                             print(f'')
                                             break
                                         elif board["board"][x+l*i][y+l*j][z+l*k]["piece"] == col:
-                                            board["board"][x][y][z]["can_place"] = True
+                                            res[col].append([x, y, z])
     return res
 
 
 def generate_board_to_send(board):
-    print(type(board))
+    # print(type(board))
     for i in range(6):
         for j in range(6):
             for k in range(6):
                 # print(type(board["board"][i][j][k]))
                 board["board"][i][j][k]["can_place"] = True
     return board
-
-
-"""
-"
-" ここから下は未使用
-"
-"""
-
-
-@ socketio.on('my_event')
-def test_message(message):
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    emit('my_response',
-         {'data': message['data'], 'count': session['receive_count']})
-
-
-@ socketio.on('my_broadcast_event')
-def test_broadcast_message(message):
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    emit('my_response',
-         {'data': message['data'], 'count': session['receive_count']},
-         broadcast=True)
-
-
-@ socketio.on('leave')
-def leave(message):
-    leave_room(message['room'])
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    emit('my_response',
-         {'data': 'In rooms: ' + ', '.join(rooms()),
-          'count': session['receive_count']})
-
-
-@ socketio.on('close_room')
-def close(message):
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    emit('my_response', {'data': 'Room ' + message['room'] + ' is closing.',
-                         'count': session['receive_count']},
-         room=message['room'])
-    close_room(message['room'])
-
-
-@ socketio.on('my_room_event')
-def send_room_message(message):
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    emit('my_response',
-         {'data': message['data'], 'count': session['receive_count']},
-         room=message['room'])
-
-
-@ socketio.on('disconnect_request')
-def disconnect_request():
-    @ copy_current_request_context
-    def can_disconnect():
-        disconnect()
-
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    # for this emit we use a callback function
-    # when the callback function is invoked we know that the message has been
-    # received and it is safe to disconnect
-    emit('my_response',
-         {'data': 'Disconnected!', 'count': session['receive_count']},
-         callback=can_disconnect)
-
-
-@ socketio.on('my_ping')
-def ping_pong():
-    emit('my_pong')
