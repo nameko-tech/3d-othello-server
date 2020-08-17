@@ -8,7 +8,7 @@ import redis
 import random
 import json
 import initial_board
-# from flask_cors import CORS  # 追加
+from flask_cors import CORS  # 追加
 import os
 if os.environ.get("REDIS_URL"):
     url = os.environ.get("REDIS_URL")
@@ -19,6 +19,7 @@ if os.environ.get("REDIS_URL"):
     password = i[i.index(":")+1:url.index("@")-8]
     print(url, host, port, password)
     cache = redis.Redis(host=host, port=port, password=password)
+    print(cache)
 else:
     cache = redis.Redis(host='redis', port=6379)
 
@@ -28,7 +29,7 @@ else:
 async_mode = "eventlet"
 
 app = Flask(__name__)
-# CORS(app)
+CORS(app)
 # app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*")
 # thread = None
@@ -180,7 +181,7 @@ def test_connect():
     emit('my_response', {'data': 'Connected', 'count': 0})
 
 
-@socketio.on_error()        # Handles the default namespace
+@socketio.on_error()
 def error_handler(e):
     print('error occurred: ' + e)
 
