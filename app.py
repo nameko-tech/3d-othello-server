@@ -5,6 +5,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, \
     close_room, rooms, disconnect
 import os
 import redis
+import time
 import random
 import json
 import initial_board
@@ -178,6 +179,9 @@ def game(message):
 @ socketio.on('connect')
 def test_connect():
     print(f'{request.sid} has connected')
+    time.sleep(1)
+    emit('room', {"data": "hello from server"}, broadcast=True)
+    time.sleep(1)
     emit('room', {"data": "hello from server"}, broadcast=True)
 
 
