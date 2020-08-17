@@ -1,10 +1,9 @@
 ---
-name: Feature request
-about: Suggest an idea for this project
+name: 機能追加
+about: 新しい機能を追加したいとき
 title: "～～機能の追加"
 labels: enhancement
-assignees: ''
-
+assignees: ""
 ---
 
 **起こっている問題**
