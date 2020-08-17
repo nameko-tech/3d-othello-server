@@ -188,9 +188,9 @@ def error_handler(e):
 @socketio.on('message')
 def handle_message(message):
     print('received message: ' + message)
-# @ socketio.on('disconnect')
 
 
+@ socketio.on('disconnect')
 def test_disconnect():
     # DBからdisconnectした人のデータを抹消する
     # 一人目でwaitingだった場合は、部屋を抹消
