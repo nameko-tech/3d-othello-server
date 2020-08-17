@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# from threading import Lock
 from flask import Flask, render_template, session, request, \
     copy_current_request_context, send_from_directory, request, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room, \
@@ -10,8 +9,19 @@ import random
 import json
 import initial_board
 # from flask_cors import CORS  # 追加
+import os
+if os.environ.get("REDIS_URL"):
+    url = os.environ.get("REDIS_URL")
+    host_port = url[url.index("@") + 1:]
+    host = host_port[:host_port.rindex(":")]
+    port = int(url[url.rindex(":")+1:])
+    i = url[url.rindex("/")+1:]
+    password = i[i.index(":")+1:url.index("@")-8]
+    print(url, host, port, password)
+    cache = redis.Redis(host=host, port=port, password=password)
+else:
+    cache = redis.Redis(host='redis', port=6379)
 
-cache = redis.Redis(host='redis', port=6379)
 # Set this variable to "threading", "eventlet" or "gevent" to test the
 # different async modes, or leave it set to None for the application to choose
 # the best option based on installed packages.
@@ -34,18 +44,6 @@ socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*")
 #                          'GET,PUT,POST,DELETE,OPTIONS')
 # #    response.headers.add("allow", "GET,OPTIONS,HEAD")
 #     return response
-
-
-def background_thread():
-    """Example of how to send server generated events to clients."""
-    count = 0
-    while True:
-        socketio.sleep(10)
-        count += 1
-        socketio.emit('my_response',
-                      {'data': 'Server generated event', 'count': count},
-                      )
-
 
 @app.route('/favicon.ico')
 def favicon():
@@ -71,6 +69,7 @@ def get(room_name):
 
 @ socketio.on('room')
 def room(message):
+    print('message arrived to room')
     if not message.get('roomName'):
         print('no raw data')
         emit('room', {'status': 'error',
@@ -181,6 +180,14 @@ def test_connect():
     emit('my_response', {'data': 'Connected', 'count': 0})
 
 
+@socketio.on_error()        # Handles the default namespace
+def error_handler(e):
+    print('error occurred: ' + e)
+
+
+@socketio.on('message')
+def handle_message(message):
+    print('received message: ' + message)
 # @ socketio.on('disconnect')
 # def test_disconnect():
     # DBからdisconnectした人のデータを抹消する
