@@ -178,7 +178,6 @@ def game(message):
 @ socketio.on('connect')
 def test_connect():
     print(f'{request.sid} has connected')
-    emit('my_response', {'data': 'Connected', 'count': 0})
 
 
 @socketio.on_error()
@@ -190,11 +189,13 @@ def error_handler(e):
 def handle_message(message):
     print('received message: ' + message)
 # @ socketio.on('disconnect')
-# def test_disconnect():
+
+
+def test_disconnect():
     # DBからdisconnectした人のデータを抹消する
     # 一人目でwaitingだった場合は、部屋を抹消
     # ゲーム中だった場合は、もうひとりに知らせてから、部屋を抹消
-    # print('Client disconnected', request.sid)
+    print('Client disconnected', request.sid)
 
 
 def update_board(board, piece, color):
