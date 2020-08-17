@@ -181,8 +181,8 @@ def test_connect():
     print(f'{request.sid} has connected')
     time.sleep(1)
     emit('room', {"data": "hello from server"}, broadcast=True)
-    time.sleep(1)
     emit('room', {"data": "hello from server"}, broadcast=True)
+    time.sleep(1)
 
 
 @socketio.on_error()
