@@ -20,32 +20,16 @@ if os.environ.get("REDIS_URL"):
     password = i[i.index(":")+1:url.index("@")-8]
     print(url, host, port, password)
     cache = redis.Redis(host=host, port=port, password=password)
-    print(cache)
 else:
     cache = redis.Redis(host='redis', port=6379)
 
-# Set this variable to "threading", "eventlet" or "gevent" to test the
-# different async modes, or leave it set to None for the application to choose
-# the best option based on installed packages.
 async_mode = "eventlet"
 
 app = Flask(__name__)
 CORS(app)
 # app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*")
-# thread = None
-# thread_lock = Lock()
 
-
-# @app.after_request
-# def after_request(response):
-#     response.headers.add("Access-Control-Allow-Origin", "*")
-#     response.headers.add("Access-Control-Allow-Headers", "*")
-# #    response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-#     response.headers.add('Access-Control-Allow-Methods',
-#                          'GET,PUT,POST,DELETE,OPTIONS')
-# #    response.headers.add("allow", "GET,OPTIONS,HEAD")
-#     return response
 
 @app.route('/favicon.ico')
 def favicon():
@@ -136,11 +120,6 @@ def room(message):
     generated_board = generate_board_to_send(initial_board.initial_board)
     emit('game', {"board": generated_board,
                   "turn": "black"}, room=room_name_key)
-    # session['receive_count'] = session.get('receive_count', 0) + 1
-    # emit('my_response',
-    #      {'data': 'In rooms: ' + ', '.join(rooms()),
-    #       'count': session['receive_count']})
-    # emit('my_response', {"hello": "hello...?"})
     return
 
 
@@ -179,15 +158,11 @@ def game(message):
 @ socketio.on('connect')
 def test_connect():
     print(f'{request.sid} has connected')
-    time.sleep(1)
-    emit('room', {"data": "hello from server"}, broadcast=True)
-    emit('room', {"data": "hello from server"}, broadcast=True)
-    time.sleep(1)
 
 
 @socketio.on_error()
 def error_handler(e):
-    print('error occurred: ' + e)
+    print('error occurred: ' + str(e))
 
 
 @socketio.on('message')
@@ -201,7 +176,6 @@ def test_disconnect():
     # 一人目でwaitingだった場合は、部屋を抹消
     # ゲーム中だった場合は、もうひとりに知らせてから、部屋を抹消
     print('Client disconnected', request.sid)
-    emit('room', {"data": "hello from server"}, broadcast=True)
 
 
 def update_board(board, piece, color):
