@@ -1,121 +1,178 @@
 #!/usr/bin/env python
-from threading import Lock
 from flask import Flask, render_template, session, request, \
-    copy_current_request_context
+    copy_current_request_context, send_from_directory, request, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room, \
     close_room, rooms, disconnect
+import os
+import redis
+import time
+import random
+import json
+import initial_board
+from flask_cors import CORS  # 追加
+import board as board_manager
 
-# Set this variable to "threading", "eventlet" or "gevent" to test the
-# different async modes, or leave it set to None for the application to choose
-# the best option based on installed packages.
-async_mode = None
+if os.environ.get("REDIS_URL"):
+    url = os.environ.get("REDIS_URL")
+    host_port = url[url.index("@") + 1:]
+    host = host_port[:host_port.rindex(":")]
+    port = int(url[url.rindex(":")+1:])
+    i = url[url.rindex("/")+1:]
+    password = i[i.index(":")+1:url.index("@")-8]
+    print(url, host, port, password)
+    cache = redis.Redis(host=host, port=port, password=password)
+else:
+    cache = redis.Redis(host='redis', port=6379)
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, async_mode=async_mode)
-thread = None
-thread_lock = Lock()
+# CORS(app)
+# app.config['SECRET_KEY'] = 'secret!'
+socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins="*")
 
 
-def background_thread():
-    """Example of how to send server generated events to clients."""
-    count = 0
-    while True:
-        socketio.sleep(10)
-        count += 1
-        socketio.emit('my_response',
-                      {'data': 'Server generated event', 'count': count},
-                      namespace='/test')
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static/img'), 'favicon.ico', )
 
 
 @app.route('/')
 def index():
-    return render_template('test.html', async_mode=socketio.async_mode)
+    return render_template('test.html')
 
 
-@socketio.on('my_event', namespace='/test')
-def test_message(message):
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    emit('my_response',
-         {'data': message['data'], 'count': session['receive_count']})
+@app.route('/data')
+def data():
+    data = cache.keys('*')
+    return jsonify({'data': str(list(map(bytes.decode, list(data))))}), 200
 
 
-@socketio.on('my_broadcast_event', namespace='/test')
-def test_broadcast_message(message):
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    emit('my_response',
-         {'data': message['data'], 'count': session['receive_count']},
-         broadcast=True)
+@app.route('/get/<room_name>')
+def get(room_name):
+    data = cache.hgetall(f'room:{room_name}')
+    return jsonify({'data': str(data)}), 200
 
 
-@socketio.on('join', namespace='/test')
-def join(message):
-    join_room(message['room'])
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    emit('my_response',
-         {'data': 'In rooms: ' + ', '.join(rooms()),
-          'count': session['receive_count']})
+@socketio.on('room')
+def room(message):
+    print('message arrived to room')
+    if not message.get('roomName'):
+        print('no raw data')
+        emit('room', {'status': 'error',
+                      'message': 'no room name was given'})
+        return
+    # 送られた roomname↓
+    room_name = message["roomName"]
+    room_name_key = f'room:{message["roomName"]}'
+
+    # 部屋が無かったら登録して、部屋に参加
+    if not cache.hlen(room_name_key):
+        print(f'{room_name_key} を登録したよ！')
+        color = "white" if int(random.random() * 2) else "black"
+        cache.hset(room_name_key, color, str(request.sid))
+        cache.expire(room_name_key, 1800)
+        join_room(room_name_key)
+        emit('room', {"status": "waiting",
+                      "room": room_name_key}, room=room_name_key)
+        return
+
+    # 既に二人いたら、だめだよって返す
+    if cache.hexists(room_name_key, 'white') and cache.hexists(room_name_key, 'black'):
+        print('既に存在してるよ')
+        emit('room', {"status": "fail", "room": room_name})
+        return
+    # 二人目だったら 登録しつつ部屋に入る
+    print('２人目だよ')
+    items = {key.decode(): val.decode()
+             for key, val in cache.hgetall(room_name_key).items()}
+    if not (items.get('white') or items.get('black')):
+        print('変ですねえ')
+        emit('room', {"status": "fail", "room": room_name, "message": "変ですねえ"})
+        return
+    yourColor = ''
+    if items.get('black'):
+        # print('おまえは白')
+        yourColor = 'white'
+    else:
+        # print('お前は黒')
+        yourColor = 'black'
+    join_room(room_name_key)
+    cache.hset(room_name_key, yourColor, str(request.sid))
+    # ここでプレイヤーの登録Done、初期ボードを登録
+    cache.hset(room_name_key, 'board', json.dumps(initial_board.initial_board))
+    cache.hset(room_name_key, 'next', "white")
+    # ready to begin game
+    # 1番さんに知らせる
+    enemyColor = "black" if yourColor == 'white' else "white"
+    emit("room", {
+        "room": room_name_key,
+        "status": "play",
+        "color": enemyColor
+    }, room=items[enemyColor])
+    # 2番さんに知らせる
+    emit("room", {
+        "room": room_name_key,
+        "status": "play",
+        "color": yourColor
+    })
+    cache.expire(room_name_key, 1800)
+    # gameチャンネルに どーん する
+    generated_board = board_manager.generate_board_to_send(
+        initial_board.initial_board)
+    emit('game', {"board": generated_board,
+                  "turn": "black"}, room=room_name_key)
+    return
 
 
-@socketio.on('leave', namespace='/test')
-def leave(message):
-    leave_room(message['room'])
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    emit('my_response',
-         {'data': 'In rooms: ' + ', '.join(rooms()),
-          'count': session['receive_count']})
+# この部屋、この色、このマスに置きたいよ！っていうのが飛んでくる
+@socketio.on('game')
+def game(message):
+    if not (message.get('piece') and message.get('room') and message.get('color')):
+        # send message that tells invalid
+        return
+    room_name_key = f'room:{message["room"]}'
+    # その部屋のボードを取りに行く
+    board = json.loads(cache.hget(room_name_key, 'board').decode())
+    current_color = cache.hget(room_name_key, 'next').decode()
+    if current_color != message["color"]:
+        print("変です")
+    # print(dict(board))
+    new_next = "white" if current_color == "black" else "black"
+    # update_board()する
+    new_board = board_manager.update_board(
+        board, message.get('piece'), message["color"])
+    # print(new_board)
+    cache.hset(room_name_key, "next", new_next)
+    cache.hset(room_name_key, "board", json.dumps(new_board))
+    generated_board = board_manager.generate_board_to_send(new_board)
+    # can_place() (ボードを渡すと、「両方の色」が置ける場所を配列で返してくれるくん)でどこに置けるかを知る
+    # can_place(board) == {"white":[...], "black": [...]}
+    # どっちも空配列だったらゲーム終了のお知らせ
+    # 自分の置ける場所がなければパスです
+    # この時点でDBを更新
+    # update_board_with_can_place()して、boardオブジェクトにcan_placeを挿入
+    # 送り返して終了
+    emit('game', {"board": generated_board,
+                  "turn": current_color}, room=room_name_key)
 
 
-@socketio.on('close_room', namespace='/test')
-def close(message):
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    emit('my_response', {'data': 'Room ' + message['room'] + ' is closing.',
-                         'count': session['receive_count']},
-         room=message['room'])
-    close_room(message['room'])
-
-
-@socketio.on('my_room_event', namespace='/test')
-def send_room_message(message):
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    emit('my_response',
-         {'data': message['data'], 'count': session['receive_count']},
-         room=message['room'])
-
-
-@socketio.on('disconnect_request', namespace='/test')
-def disconnect_request():
-    @copy_current_request_context
-    def can_disconnect():
-        disconnect()
-
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    # for this emit we use a callback function
-    # when the callback function is invoked we know that the message has been
-    # received and it is safe to disconnect
-    emit('my_response',
-         {'data': 'Disconnected!', 'count': session['receive_count']},
-         callback=can_disconnect)
-
-
-@socketio.on('my_ping', namespace='/test')
-def ping_pong():
-    emit('my_pong')
-
-
-@socketio.on('connect', namespace='/test')
+@ socketio.on('connect')
 def test_connect():
-    global thread
-    with thread_lock:
-        if thread is None:
-            thread = socketio.start_background_task(background_thread)
-    emit('my_response', {'data': 'Connected', 'count': 0})
+    print(f'{request.sid} has connected')
 
 
-@socketio.on('disconnect', namespace='/test')
+@socketio.on_error()
+def error_handler(e):
+    print('error occurred: ' + str(e))
+
+
+@socketio.on('message')
+def handle_message(message):
+    print('received message: ' + message)
+
+
+@ socketio.on('disconnect')
 def test_disconnect():
+    # DBからdisconnectした人のデータを抹消する
+    # 一人目でwaitingだった場合は、部屋を抹消
+    # ゲーム中だった場合は、もうひとりに知らせてから、部屋を抹消
     print('Client disconnected', request.sid)
-
-
-if __name__ == '__main__':
-    socketio.run(app, debug=True)

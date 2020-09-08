@@ -1,2 +1,6 @@
 flask-socketio
-flask
+Flask
+redis
+gunicorn
+eventlet
+flask-cors
