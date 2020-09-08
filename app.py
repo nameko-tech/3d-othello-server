@@ -126,10 +126,9 @@ def room(message):
 # この部屋、この色、このマスに置きたいよ！っていうのが飛んでくる
 @socketio.on('game')
 def game(message):
-    if not (message.get('piece') and message.get('room')):
+    if not (message.get('piece') and message.get('room') and message.get('color')):
+        # send message that tells invalid
         return
-    piece = message["piece"]
-    room_name = message["room"]
     room_name_key = f'room:{message["room"]}'
     # その部屋のボードを取りに行く
     board = json.loads(cache.hget(room_name_key, 'board').decode())
